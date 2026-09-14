@@ -990,6 +990,19 @@
 
         <tr>
             <td class="indent2">
+                <label><class id="PostProcessing_ExtendedResolutionInvert_text" style="color:black;">Extended Resolution Invert</class></label>
+            </td>
+            <td>
+                <select id="PostProcessing_ExtendedResolutionInvert_value1">
+                    <option value="true">enabled (true)</option>
+                    <option value="false" selected>disabled (false)</option>
+                </select>
+            </td>
+            <td>$TOOLTIP_PostProcessing_NUMBER.ExtendedResolutionInvert</td>
+        </tr>
+
+        <tr>
+            <td class="indent2">
                 <label><class id="PostProcessing_IgnoreLeadingNaN_text" style="color:black;">Ignore Leading NaNs</class></label>
             </td>
             <td>
@@ -2253,6 +2266,7 @@ function UpdateInputIndividual(sel) {
         ReadParameter(param, "PostProcessing", "MaxRateValue", true, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "MaxRateType", true, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "ExtendedResolution", false, NUNBERSAkt);
+        ReadParameter(param, "PostProcessing", "ExtendedResolutionInvert", false, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "IgnoreLeadingNaN", false, NUNBERSAkt);
         // ReadParameter(param, "PostProcessing", "IgnoreAllNaN", false, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "AllowNegativeRates", false, NUNBERSAkt);
@@ -2273,6 +2287,7 @@ function UpdateInputIndividual(sel) {
     WriteParameter(param, category, "PostProcessing", "MaxRateValue", true, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "MaxRateType", true, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "ExtendedResolution", false, NUNBERSAkt);
+    WriteParameter(param, category, "PostProcessing", "ExtendedResolutionInvert", false, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "IgnoreLeadingNaN", false, NUNBERSAkt);
     // WriteParameter(param, category, "PostProcessing", "IgnoreAllNaN", false, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "AllowNegativeRates", false, NUNBERSAkt);

@@ -178,6 +178,7 @@ function ParseConfig() {
     ParamAddValue(param, catname, "MaxRateValue", 1, true, "0.05");
     ParamAddValue(param, catname, "MaxRateType", 1, true);
     ParamAddValue(param, catname, "ExtendedResolution", 1, true, "false");
+    ParamAddValue(param, catname, "ExtendedResolutionInvert", 1, true, "false");
     ParamAddValue(param, catname, "IgnoreLeadingNaN", 1, true, "false");
     // ParamAddValue(param, catname, "IgnoreAllNaN", 1, true, "false");
     ParamAddValue(param, catname, "ErrorMessage");
@@ -352,6 +353,20 @@ function ParseConfig() {
         param["System"]["RSSIThreshold"]["found"] = true;
         param["System"]["RSSIThreshold"]["enabled"] = false;
         param["System"]["RSSIThreshold"]["value1"] = "0";
+    }
+
+    // Downward compatibility: ExtendedResolutionInvert is a newer parameter which can be missing (or commented out) in older configs.
+    // It is a plain boolean, a missing or commented out parameter means "false". Enable it, so it gets saved uncommented.
+    for (var _num in NUMBERS) {
+        if ((typeof NUMBERS[_num]["PostProcessing"] == 'undefined') || (typeof NUMBERS[_num]["PostProcessing"]["ExtendedResolutionInvert"] == 'undefined')) {
+            continue;
+        }
+
+        if (!NUMBERS[_num]["PostProcessing"]["ExtendedResolutionInvert"]["found"] || !NUMBERS[_num]["PostProcessing"]["ExtendedResolutionInvert"]["enabled"]) {
+            NUMBERS[_num]["PostProcessing"]["ExtendedResolutionInvert"]["found"] = true;
+            NUMBERS[_num]["PostProcessing"]["ExtendedResolutionInvert"]["enabled"] = true;
+            NUMBERS[_num]["PostProcessing"]["ExtendedResolutionInvert"]["value1"] = "false";
+        }
     }
 }
 

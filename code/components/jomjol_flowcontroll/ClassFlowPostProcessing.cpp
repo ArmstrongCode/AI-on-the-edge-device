@@ -352,6 +352,28 @@ void ClassFlowPostProcessing::handleDecimalExtendedResolution(string _decsep, st
     }
 }
 
+void ClassFlowPostProcessing::handleExtendedResolutionInvert(string _decsep, string _value) {
+    string _digit, _decpos;
+    int _pospunkt = _decsep.find_first_of(".");
+    // ESP_LOGD(TAG, "Name: %s, Pospunkt: %d", _decsep.c_str(), _pospunkt);
+
+    if (_pospunkt > -1) {
+        _digit = _decsep.substr(0, _pospunkt);
+    }
+    else {
+        _digit = "default";
+    }
+
+    for (int j = 0; j < NUMBERS.size(); ++j) {
+        bool _zwdc = alphanumericToBoolean(_value);
+
+        // Set to default first (if nothing else is set)
+        if ((_digit == "default") || (NUMBERS[j]->name == _digit)) {
+            NUMBERS[j]->invertExtendedResolution = _zwdc;
+        }
+    }
+}
+
 void ClassFlowPostProcessing::handleDecimalSeparator(string _decsep, string _value) {
     string _digit, _decpos;
     int _pospunkt = _decsep.find_first_of(".");
@@ -580,6 +602,10 @@ bool ClassFlowPostProcessing::ReadParameter(FILE* pfile, string& aktparamgraph) 
             handleDecimalExtendedResolution(splitted[0], splitted[1]);
         }
 
+        if ((toUpper(_param) == "EXTENDEDRESOLUTIONINVERT") && (splitted.size() > 1)) {
+            handleExtendedResolutionInvert(splitted[0], splitted[1]);
+        }
+
         if ((toUpper(_param) == "DECIMALSHIFT") && (splitted.size() > 1)) {
             handleDecimalSeparator(splitted[0], splitted[1]);
         }
@@ -693,6 +719,7 @@ void ClassFlowPostProcessing::InitNUMBERS() {
         _number->DecimalShift = 0;
         _number->DecimalShiftInitial = 0;
         _number->isExtendedResolution = false;
+        _number->invertExtendedResolution = false;
         _number->AnalogToDigitTransitionStart=9.2;
         _number->ChangeRateThreshold = 2;
 
@@ -812,10 +839,10 @@ bool ClassFlowPostProcessing::doFlow(string zwtime) {
 
         if (NUMBERS[j]->digit_roi) {
             if (NUMBERS[j]->analog_roi) {
-                NUMBERS[j]->ReturnRawValue = flowDigit->getReadout(j, false, previous_value, NUMBERS[j]->analog_roi->ROI[0]->result_float, NUMBERS[j]->AnalogToDigitTransitionStart) + NUMBERS[j]->ReturnRawValue;
+                NUMBERS[j]->ReturnRawValue = flowDigit->getReadout(j, false, false, previous_value, NUMBERS[j]->analog_roi->ROI[0]->result_float, NUMBERS[j]->AnalogToDigitTransitionStart) + NUMBERS[j]->ReturnRawValue;
             }
             else {
-                NUMBERS[j]->ReturnRawValue = flowDigit->getReadout(j, NUMBERS[j]->isExtendedResolution, previous_value);        // Extended Resolution only if there are no analogue digits
+                NUMBERS[j]->ReturnRawValue = flowDigit->getReadout(j, NUMBERS[j]->isExtendedResolution, NUMBERS[j]->invertExtendedResolution, previous_value);        // Extended Resolution only if there are no analogue digits
             }
         }
 	    

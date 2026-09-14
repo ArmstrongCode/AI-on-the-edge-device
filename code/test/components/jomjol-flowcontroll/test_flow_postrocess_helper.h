@@ -90,6 +90,14 @@ void setPreValue(UnderTestPost* _UnderTestPost, double _preValue);
 void setExtendedResolution(UnderTestPost* _UnderTestPost, bool _extendedResolution);
 
 /**
+ * @brief Set the Extended Resolution Invert on undertest
+ * 
+ * @param _UnderTestPost the testobject
+ * @param _extendedResolutionInvert true/false 
+ */
+void setExtendedResolutionInvert(UnderTestPost* _UnderTestPost, bool _extendedResolutionInvert);
+
+/**
  * @brief Set the Decimal Shift (Nachkomma)
  * 
  * @param _UnderTestPost the testobject  

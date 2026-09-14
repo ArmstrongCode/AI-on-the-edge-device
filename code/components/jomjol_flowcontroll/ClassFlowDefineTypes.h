@@ -75,6 +75,7 @@ struct NumberPost {
     string MeasurementV2;       // influxdbMeasurementName_v2; Name of the Measurement in InfluxDBv2
 
     bool isExtendedResolution;  // extendResolution; Adds the decimal place of the least significant analog ROI to the value
+    bool invertExtendedResolution; // extendedResolutionInvert; Mirrors the extended resolution decimal place of the least significant digit ROI (x.1 <-> x.9, x.2 <-> x.8, ...) for meters whose digits roll in the opposite direction (next digit enters from the top)
 
     general *digit_roi;         // digitRoi; set of digit ROIs for the sequence
     general *analog_roi;        // analogRoi; set of analog ROIs for the sequence

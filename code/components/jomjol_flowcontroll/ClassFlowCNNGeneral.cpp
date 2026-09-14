@@ -35,16 +35,17 @@ ClassFlowCNNGeneral::ClassFlowCNNGeneral(ClassFlowAlignment *_flowalign, t_CNNTy
     imagesRetention = 5;
 }
 
-string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution, int prev, float _before_narrow_Analog, float AnalogToDigitTransitionStart) {
+string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution, bool _invertExtendedResolution, int prev, float _before_narrow_Analog, float AnalogToDigitTransitionStart) {
     string result = "";    
 
     if (GENERAL[_analog]->ROI.size() == 0) {
         return result;
     }
     
-    LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout _analog=" + std::to_string(_analog) + ", _extendedResolution=" + std::to_string(_extendedResolution) + ", prev=" + std::to_string(prev));
+    LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout _analog=" + std::to_string(_analog) + ", _extendedResolution=" + std::to_string(_extendedResolution) + ", _invertExtendedResolution=" + std::to_string(_invertExtendedResolution) + ", prev=" + std::to_string(prev));
  
     if (CNNType == Analogue || CNNType == Analogue100) {
+        // _invertExtendedResolution is not applied to analog pointers. Their direction of rotation is handled by the CCW flag of the ROI.
         float number = GENERAL[_analog]->ROI[GENERAL[_analog]->ROI.size() - 1]->result_float;
         int result_after_decimal_point = ((int) floor(number * 10) + 10) % 10;
         
@@ -84,9 +85,17 @@ string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution
                 int result_after_decimal_point = ((int) floor(number * 10)) % 10;
                 int result_before_decimal_point = ((int) floor(number)) % 10;
 
+                if (_invertExtendedResolution) {
+                    // The digits of this meter roll in the opposite direction (the next digit enters the ROI from the top instead of from the bottom).
+                    // The models are trained on the regular direction, therefore the fractional part of the recognition runs backwards
+                    // during a transition (6.0 -> 6.9 -> 6.8 -> ... -> 6.1 -> 7.0), see https://github.com/jomjol/AI-on-the-edge-device/issues/4081
+                    // Mirror the fractional part, so it counts upwards again (x.1 <-> x.9, x.2 <-> x.8, ...). x.0 and x.5 stay unchanged.
+                    result_after_decimal_point = (10 - result_after_decimal_point) % 10;
+                }
+
                 result = std::to_string(result_before_decimal_point) + std::to_string(result_after_decimal_point);
                 prev = result_before_decimal_point;
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(dig100-ext) result_before_decimal_point=" + std::to_string(result_before_decimal_point) + ", result_after_decimal_point=" + std::to_string(result_after_decimal_point) + ", prev=" + std::to_string(prev));
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(dig100-ext) result_before_decimal_point=" + std::to_string(result_before_decimal_point) + ", result_after_decimal_point=" + std::to_string(result_after_decimal_point) + ", inverted=" + std::to_string(_invertExtendedResolution) + ", prev=" + std::to_string(prev));
             }
             else {
                 if (_before_narrow_Analog >= 0) {
