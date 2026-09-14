@@ -543,3 +543,94 @@ void test_doFlowPP4() {
 }
 
 
+
+/**
+ * @brief Tests the parameter ExtendedResolutionInvert
+ * https://github.com/jomjol/AI-on-the-edge-device/issues/4081
+ * 
+ * On meters whose digits roll in the opposite direction (the next digit enters the ROI from the top instead of from the bottom)
+ * the fractional part of the last digit runs backwards during a transition (6.0, 6.9, 6.8, ..., 6.1, 7.0), because the models
+ * are trained on the regular direction. With ExtendedResolutionInvert the fractional part gets mirrored (x.1 <-> x.9, x.2 <-> x.8, ...),
+ * x.0 and x.5 stay unchanged. All other digits are not affected.
+ */
+void test_doFlowPP_ExtendedResolutionInvert() {
+        // Meter shows 12.61, the model returns 6.9 for the last digit (transition 6 -> 7 runs backwards)
+        std::vector<float> digits = { 1.0, 2.0, 6.9};
+        std::vector<float> analogs = { };
+        const char* expected = "126";
+        const char* expected_extended = "126.9";
+        const char* expected_extended_inverted = "126.1";
+
+        // extendResolution=true, regular direction
+        std::string result = process_doFlow(analogs, digits, Digit100, false, true, 0);
+        TEST_ASSERT_EQUAL_STRING(expected_extended, result.c_str());
+
+        // extendResolution=true, inverted direction
+        UnderTestPost* undertestPost = init_do_flow(analogs, digits, Digit100, false, true, 0);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING(expected_extended_inverted, result.c_str());
+        delete undertestPost;
+
+        // extendResolution=false: the invert has no effect
+        undertestPost = init_do_flow(analogs, digits, Digit100, false, false, 0);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING(expected, result.c_str());
+        delete undertestPost;
+
+        // x.0 stays x.0
+        digits = { 1.0, 2.0, 7.0};
+        undertestPost = init_do_flow(analogs, digits, Digit100, false, true, 0);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING("127.0", result.c_str());
+        delete undertestPost;
+
+        // x.5 stays x.5
+        digits = { 1.0, 2.0, 6.5};
+        undertestPost = init_do_flow(analogs, digits, Digit100, false, true, 0);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING("126.5", result.c_str());
+        delete undertestPost;
+
+        // Complete transition 6 -> 7 on such a meter: the model returns 6.0, 6.9, 6.8, ..., 6.1, 7.0.
+        // With the invert the readout has to count upwards: 6.0, 6.1, 6.2, ..., 6.9, 7.0
+        std::vector<float> recognized = { 6.0, 6.9, 6.8, 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 7.0 };
+        const char* expected_sequence[] = { "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9", "7.0" };
+        for (int step = 0; step < recognized.size(); ++step) {
+            digits = { recognized[step] };
+            undertestPost = init_do_flow(analogs, digits, Digit100, false, true, 0);
+            setExtendedResolutionInvert(undertestPost, true);
+            result = process_doFlow(undertestPost);
+            TEST_ASSERT_EQUAL_STRING(expected_sequence[step], result.c_str());
+            delete undertestPost;
+        }
+
+        // Only the extended resolution digit gets mirrored, the evaluation of all other digits is unchanged
+        // (same recognitions as in test_doFlowPP2 and test_doFlowPP3)
+        digits = { 3.0, 2.0, 2.0, 8.0, 9.0, 4.0, 1.7, 9.8};
+        undertestPost = init_do_flow(analogs, digits, Digit100, false, true, -3);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING("32289.4192", result.c_str());   // "32289.4198" without invert
+        delete undertestPost;
+
+        digits = { 7.0, 4.0, 7.0, 2.0, 7.0, 5.4, 9.4};
+        undertestPost = init_do_flow(analogs, digits, Digit100, false, true, -3);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING("7472.7596", result.c_str());   // "7472.7594" without invert
+        delete undertestPost;
+
+        // The extended resolution of a sequence with analog pointers is taken from the last analog pointer.
+        // The invert is not applied there (the CCW flag of the ROI handles counterclockwise pointers).
+        digits = { 1.2, 6.7};
+        analogs = { 9.5, 8.4};
+        undertestPost = init_do_flow(analogs, digits, Digit100, false, true, 0);
+        setExtendedResolutionInvert(undertestPost, true);
+        result = process_doFlow(undertestPost);
+        TEST_ASSERT_EQUAL_STRING("16.984", result.c_str());
+        delete undertestPost;
+}
