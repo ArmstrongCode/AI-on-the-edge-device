@@ -24,6 +24,7 @@
 #include "server_file.h"
 #include "server_ota.h"
 #include "time_sntp.h"
+#include "PulseCounter.h"
 #include "configFile.h"
 #include "server_main.h"
 #include "server_camera.h"
@@ -544,6 +545,7 @@ extern "C" void app_main(void)
 #endif // ENABLE_MQTT
 
     gpio_handler_create(server);
+    pulsecounter_create(server);
 
     ESP_LOGD(TAG, "Before reg server main");
     register_server_main_uri(server, "/sdcard");

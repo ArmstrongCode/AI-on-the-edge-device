@@ -1946,6 +1946,114 @@
         </tr>
         <!------------- GPIO13 end ------------------>
 
+        <!------------- PulseCounter ------------------>
+        <tr style="border-bottom: 2px solid lightgray;">
+            <td colspan="3" style="padding-left: 0px; padding-bottom: 3px;">
+                <h4>
+                <input type="checkbox" id="Category_PulseCounter_enabled" value="1"  onclick = 'UpdateAfterCategoryCheck()' unchecked >
+                <label for=Category_PulseCounter_enabled>Pulse Counter (external sensor)</label>
+                </h4>
+            </td>
+        </tr>
+
+        <tr class="PulseCounterItem">
+            <td class="indent1" colspan="3">
+                Counts the pulses of an external sensor connected to a GPIO, e.g. an IR reflectance sensor (TCRT5000) watching the rotating disc of a Ferraris electricity meter
+                or a photo sensor on the pulse LED of a modern meter. The current rate (power, flow) is derived from the interval between the pulses and published immediately
+                (MQTT topics <code>&lt;MainTopic&gt;/pulse/...</code>, REST API <a href=pulsecounter target="_blank">http://&lt;IP&gt;/pulsecounter</a>), so it is much more responsive than the camera based rate.
+                The camera keeps providing the exact meter reading. The pulse counter value can be set on the overview page.
+            </td>
+        </tr>
+
+        <tr class="PulseCounterItem">
+            <td class="indent1">
+                <label><class id="PulseCounter_GPIO_text" style="color:black;">GPIO</class></label>
+            </td>
+            <td>
+                <select id="PulseCounter_GPIO_value1">
+                    <option value="13" selected>GPIO13 (recommended)</option>
+                    <option value="12">GPIO12 (strapping pin, must be low during boot!)</option>
+                    <option value="3">GPIO3 (serial RX no longer usable)</option>
+                    <option value="1">GPIO1 (serial TX no longer usable)</option>
+                </select>
+            </td>
+            <td>$TOOLTIP_PulseCounter_GPIO</td>
+        </tr>
+
+        <tr class="PulseCounterItem">
+            <td class="indent1">
+                <label><class id="PulseCounter_Edge_text" style="color:black;">Counted Signal Edge</class></label>
+            </td>
+            <td>
+                <select id="PulseCounter_Edge_value1">
+                    <option value="rising-edge" selected>rising edge (low to high)</option>
+                    <option value="falling-edge">falling edge (high to low)</option>
+                </select>
+            </td>
+            <td>$TOOLTIP_PulseCounter_Edge</td>
+        </tr>
+
+        <tr class="PulseCounterItem expert">
+            <td class="indent1">
+                <label><class id="PulseCounter_PullMode_text" style="color:black;">Internal Pull Resistor</class></label>
+            </td>
+            <td>
+                <select id="PulseCounter_PullMode_value1">
+                    <option value="pullup" selected>pull-up</option>
+                    <option value="pulldown">pull-down</option>
+                    <option value="none">none</option>
+                </select>
+            </td>
+            <td>$TOOLTIP_PulseCounter_PullMode</td>
+        </tr>
+
+        <tr class="PulseCounterItem">
+            <td class="indent1">
+                <label><class id="PulseCounter_PulsesPerUnit_text" style="color:black;">Pulses per Unit</class></label>
+            </td>
+            <td>
+                <input required type="number" id="PulseCounter_PulsesPerUnit_value1" min="0.001" step="any"
+                    oninput="(!validity.rangeUnderflow||(value=0.001));"> <span class="PulseCounterItem">e.g. revolutions per kWh</span>
+            </td>
+            <td>$TOOLTIP_PulseCounter_PulsesPerUnit</td>
+        </tr>
+
+        <tr class="PulseCounterItem">
+            <td class="indent1">
+                <label><class id="PulseCounter_DebounceTime_text" style="color:black;">Debounce Time</class></label>
+            </td>
+            <td>
+                <input required type="number" id="PulseCounter_DebounceTime_value1" min="0" max="60000"
+                    oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=60000)) && 
+                        (!validity.stepMismatch||(value=parseInt(this.value)));"> <span class="PulseCounterItem">ms</span>
+            </td>
+            <td>$TOOLTIP_PulseCounter_DebounceTime</td>
+        </tr>
+
+        <tr class="PulseCounterItem expert">
+            <td class="indent1">
+                <label><class id="PulseCounter_RateTimeout_text" style="color:black;">Rate Timeout</class></label>
+            </td>
+            <td>
+                <input required type="number" id="PulseCounter_RateTimeout_value1" min="1" max="86400"
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=86400)) && 
+                        (!validity.stepMismatch||(value=parseInt(this.value)));"> <span class="PulseCounterItem">s</span>
+            </td>
+            <td>$TOOLTIP_PulseCounter_RateTimeout</td>
+        </tr>
+
+        <tr class="PulseCounterItem">
+            <td class="indent1">
+                <input type="checkbox" id="PulseCounter_AlignSequence_enabled" value="1"  onclick = 'InvertEnableItem("PulseCounter", "AlignSequence")' unchecked >
+                <label for=PulseCounter_AlignSequence_enabled><class id="PulseCounter_AlignSequence_text" style="color:black;">Align with Number Sequence</class></label>
+            </td>
+            <td>
+                <select id="PulseCounter_AlignSequence_value1"></select>
+            </td>
+            <td>$TOOLTIP_PulseCounter_AlignSequence</td>
+        </tr>
+        <!------------- PulseCounter end ------------------>
+
         <!------------- Autotimer ------------------>
         <tr style="border-bottom: 2px solid lightgray;">
             <td colspan="3" style="padding-left: 0px; padding-bottom: 3px;"><h4>Auto Timer</h4></td>
@@ -2216,6 +2324,11 @@ function InitIndivParameter() {
         _indexMQTTIdx.remove(0);
     }	
 
+    var _indexPulseCounter = document.getElementById("PulseCounter_AlignSequence_value1");
+    while (_indexPulseCounter.length) {
+        _indexPulseCounter.remove(0);
+    }
+
     for (var i = 0; i < NUMBERS.length; ++i) {
         var option = document.createElement("option");
         option.text = NUMBERS[i]["name"];
@@ -2236,12 +2349,18 @@ function InitIndivParameter() {
         optionMQTTIdx.text = NUMBERS[i]["name"];
         optionMQTTIdx.value = i;
         _indexMQTTIdx.add(optionMQTTIdx);
+
+        var optionPulseCounter = document.createElement("option");
+        optionPulseCounter.text = NUMBERS[i]["name"];
+        optionPulseCounter.value = NUMBERS[i]["name"];
+        _indexPulseCounter.add(optionPulseCounter);
     }
 	
     _index.selectedIndex = 0; 
     _indexInflux.selectedIndex = 0;
     _indexInfluxv1.selectedIndex = 0;
     _indexMQTTIdx.selectedIndex = 0;
+    _indexPulseCounter.selectedIndex = 0;
 }
 
 function UpdateInputIndividual(sel) {
@@ -2305,6 +2424,9 @@ function UpdateInput() {
 
     document.getElementById("Category_Webhook_enabled").checked = category["Webhook"]["enabled"];
     setVisible("WebhookItem", category["Webhook"]["enabled"]);
+
+    document.getElementById("Category_PulseCounter_enabled").checked = category["PulseCounter"]["enabled"];
+    setVisible("PulseCounterItem", category["PulseCounter"]["enabled"]);
 
     WriteParameter(param, category, "TakeImage", "RawImagesLocation", true);
     WriteParameter(param, category, "TakeImage", "RawImagesRetention", true);
@@ -2401,6 +2523,14 @@ function UpdateInput() {
     WriteParameter(param, category, "GPIO", "LEDNumbers", false);
     WriteParameter(param, category, "GPIO", "LEDColor", false);
 
+    WriteParameter(param, category, "PulseCounter", "GPIO", false);
+    WriteParameter(param, category, "PulseCounter", "Edge", false);
+    WriteParameter(param, category, "PulseCounter", "PullMode", false);
+    WriteParameter(param, category, "PulseCounter", "PulsesPerUnit", false);
+    WriteParameter(param, category, "PulseCounter", "DebounceTime", false);
+    WriteParameter(param, category, "PulseCounter", "RateTimeout", false);
+    WriteParameter(param, category, "PulseCounter", "AlignSequence", true);
+
     //WriteParameter(param, category, "AutoTimer", "AutoStart", false);	
     WriteParameter(param, category, "AutoTimer", "Interval", false);
 
@@ -2473,6 +2603,7 @@ function ReadParameterAll() {
     category["InfluxDBv2"]["enabled"] = document.getElementById("Category_InfluxDBv2_enabled").checked;
     category["Webhook"]["enabled"] = document.getElementById("Category_Webhook_enabled").checked;
     category["GPIO"]["enabled"] = document.getElementById("Category_GPIO_enabled").checked;
+    category["PulseCounter"]["enabled"] = document.getElementById("Category_PulseCounter_enabled").checked;
 
     ReadParameter(param, "TakeImage", "RawImagesLocation", true);
     ReadParameter(param, "TakeImage", "RawImagesRetention", true);
@@ -2577,6 +2708,21 @@ function ReadParameterAll() {
     param["GPIO"]["LEDNumbers"]["found"] = true;
     param["GPIO"]["LEDColor"]["found"] = true;
 
+    ReadParameter(param, "PulseCounter", "GPIO", false);
+    ReadParameter(param, "PulseCounter", "Edge", false);
+    ReadParameter(param, "PulseCounter", "PullMode", false);
+    ReadParameter(param, "PulseCounter", "PulsesPerUnit", false);
+    ReadParameter(param, "PulseCounter", "DebounceTime", false);
+    ReadParameter(param, "PulseCounter", "RateTimeout", false);
+    ReadParameter(param, "PulseCounter", "AlignSequence", true);
+    // These parameters have no checkbox, they are always written (even if the section is disabled)
+    param["PulseCounter"]["GPIO"]["enabled"] = true;
+    param["PulseCounter"]["Edge"]["enabled"] = true;
+    param["PulseCounter"]["PullMode"]["enabled"] = true;
+    param["PulseCounter"]["PulsesPerUnit"]["enabled"] = true;
+    param["PulseCounter"]["DebounceTime"]["enabled"] = true;
+    param["PulseCounter"]["RateTimeout"]["enabled"] = true;
+
     //ReadParameter(param, "AutoTimer", "AutoStart", false);
     ReadParameter(param, "AutoTimer", "Interval", false);
     
@@ -2608,6 +2754,7 @@ function UpdateAfterCategoryCheck() {
     category["InfluxDBv2"]["enabled"] = document.getElementById("Category_InfluxDBv2_enabled").checked;
     category["GPIO"]["enabled"] = document.getElementById("Category_GPIO_enabled").checked;
     category["Webhook"]["enabled"] = document.getElementById("Category_Webhook_enabled").checked;
+    category["PulseCounter"]["enabled"] = document.getElementById("Category_PulseCounter_enabled").checked;
 
     UpdateInput();
     var sel = document.getElementById("Numbers_value1");

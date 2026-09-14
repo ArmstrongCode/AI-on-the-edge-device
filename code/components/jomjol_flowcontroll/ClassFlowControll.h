@@ -56,6 +56,7 @@ public:
 	bool ReadParameter(FILE* pfile, string& aktparamgraph);	
 	string getJSON();
 	const std::vector<NumberPost*> &getNumbers();
+	bool hasPostProcessing() { return flowpostprocessing != NULL; };
 	string getNumbersName();
 
 	string TranslateAktstatus(std::string _input);

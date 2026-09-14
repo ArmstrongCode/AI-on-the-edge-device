@@ -21,6 +21,7 @@
 
 #include "ClassLogFile.h"
 #include "server_GPIO.h"
+#include "PulseCounter.h"
 
 #include "server_file.h"
 
@@ -124,9 +125,61 @@ void doInit(void)
     /* GPIO handler has to be initialized before MQTT init to ensure proper topic subscription */
     gpio_handler_init();
 
+    /* Pulse counter (external sensor); a GPIO which is already used by the GPIO handler can not be used for it */
+    pulsecounter_init([](gpio_num_t gpio) -> bool {
+        GpioHandler *gpioHandler = gpio_handler_get();
+        return (gpioHandler != NULL) && gpioHandler->isPinConfigured(gpio);
+    });
+
 #ifdef ENABLE_MQTT
     flowctrl.StartMQTTService();
 #endif // ENABLE_MQTT
+}
+
+/**
+ * Aligns the value of the pulse counter with the reading of the configured number sequence.
+ * Only a valid reading (no error) is used. The pulse count at the time the image was taken is used for the comparison.
+ */
+void alignPulseCounterWithReading(void)
+{
+    PulseCounter *pulseCounter = pulsecounter_get();
+
+    if ((pulseCounter == NULL) || !pulseCounter->isEnabled() || !flowctrl.hasPostProcessing())
+    {
+        return;
+    }
+
+    std::string sequenceName = pulseCounter->getAlignSequence();
+    if (sequenceName.empty())
+    {
+        return;
+    }
+
+    const std::vector<NumberPost *> &numbers = flowctrl.getNumbers();
+    bool found = false;
+
+    for (int i = 0; i < numbers.size(); ++i)
+    {
+        if (numbers[i]->name != sequenceName)
+        {
+            continue;
+        }
+
+        found = true;
+
+        if ((numbers[i]->ErrorMessageText != "no error") || numbers[i]->ReturnValue.empty())
+        {
+            LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Pulse counter not aligned: no valid reading of sequence '" + sequenceName + "' in this round");
+            return;
+        }
+
+        pulseCounter->alignWithReading(numbers[i]->Value, numbers[i]->Nachkomma, numbers[i]->timeStampLastPreValue);
+    }
+
+    if (!found)
+    {
+        LogFile.WriteToFile(ESP_LOG_WARN, TAG, "Pulse counter not aligned: number sequence '" + sequenceName + "' does not exist (check parameter AlignSequence)");
+    }
 }
 
 bool doflow(void)
@@ -544,6 +597,15 @@ esp_err_t handler_openmetrics(httpd_req_t *req)
 
         // data aquisition round
         response += createMetric(metricNamePrefix + "_rounds_total", "data aquisition rounds since device startup", "counter", std::to_string(countRounds));
+
+        // pulse counter (external sensor)
+        PulseCounter *pulseCounter = pulsecounter_get();
+        if ((pulseCounter != NULL) && pulseCounter->isEnabled())
+        {
+            response += createMetric(metricNamePrefix + "_pulse_count_total", "pulses counted by the pulse counter", "counter", std::to_string(pulseCounter->getCount()));
+            response += createMetric(metricNamePrefix + "_pulse_value", "meter value derived from the pulse counter", "gauge", pulseCounter->getValueString());
+            response += createMetric(metricNamePrefix + "_pulse_rate_per_hour", "current rate derived from the pulse counter in value units per hour", "gauge", pulseCounter->getReadout("rate_per_hour"));
+        }
 
         // the response always contains at least the metadata (HELP, TYPE) for the MetricFamily so no length check is needed
         httpd_resp_send(req, response.c_str(), response.length());
@@ -1702,6 +1764,7 @@ void task_autodoFlow(void *pvParameter)
 #endif
             flowisrunning = true;
             doflow();
+            alignPulseCounterWithReading();
 #ifdef DEBUG_DETAIL_ON
             ESP_LOGD(TAG, "Remove older log files");
 #endif

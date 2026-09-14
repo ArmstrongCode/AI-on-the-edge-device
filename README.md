@@ -63,6 +63,7 @@ All you need is an [ESP32 board with a supported camera](https://jomjol.github.i
 - 🏠 Full integration with Home Assistant.
 - 📊 Support for **Influx DB 1** and **2**.
 - 📡 **MQTT protocol** support.
+- ⏱️ Optional **pulse counter** for an external sensor (e.g. an IR reflectance sensor on the disc of a Ferraris meter) providing a responsive rate/power reading next to the camera reading.
 - 📥 **REST API** available for data access.
 
 <br>

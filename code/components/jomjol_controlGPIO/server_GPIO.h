@@ -76,6 +76,7 @@ public:
     void gpioInterrupt(GpioResult* gpioResult);  
     void flashLightEnable(bool value);
     bool isEnabled() { return _isEnabled; }
+    bool isPinConfigured(gpio_num_t gpio) { return (gpioMap != NULL) && (gpioMap->count(gpio) > 0); }
 #ifdef ENABLE_MQTT
     void handleMQTTconnect();
 #endif //ENABLE_MQTT

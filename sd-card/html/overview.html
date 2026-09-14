@@ -72,7 +72,7 @@
 	<table class="tg">
 		<tr>
 			<th class="th">Value</th>
-			<td class="tg-1" rowspan="13">
+			<td class="tg-1" rowspan="15">
 				<img style="padding-left: 5px; padding-top: 0px; max-width:100%; width:100%; height:auto;" id="img" src="">
 			</td>
 		</tr>	 
@@ -104,6 +104,22 @@
 			<td class="tg-2">
 				<div id="error"></div>
 			</td>	
+		</tr>
+		<tr class="pulsecounter" style="display:none;">
+			<th class="th">Pulse Counter</th>
+		</tr>
+		<tr class="pulsecounter" style="display:none;">
+			<td class="tg-4">
+				<div id="pulse_value"></div>
+				<div id="pulse_rate"></div>
+				<div id="pulse_count"></div>
+				<div id="pulse_lastpulse"></div>
+				<div style="padding-top: 5px;">
+					<input type="number" id="pulse_setvalue" min="0" step="any" style="width: 120px;" placeholder="meter reading">
+					<button type="button" onclick="setPulseCounterValue()">Set Value</button>
+					<span id="pulse_setresult"></span>
+				</div>
+			</td>
 		</tr>
 		<tr>
 			<th class="th">Process State</th>
@@ -146,6 +162,7 @@
 		$(document).ready(function() {
 			LoadData();
 			LoadROIImage();
+			loadPulseCounter();
 		});
 
 		function LoadData(){
@@ -177,6 +194,73 @@
 				LoadROIImage();
 				Refresh();
 			}, 300000);
+		}
+
+		/* Pulse counter (external sensor), only shown if it is enabled in the configuration */
+		function loadPulseCounter() {
+			url = domainname + '/pulsecounter';
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4) {
+					var enabled = false;
+
+					if (this.status == 200) {
+						try {
+							var data = JSON.parse(xhttp.responseText);
+							enabled = (data["enabled"] == true);
+
+							if (enabled) {
+								var timeUnit = (data["time_unit"] == "h") ? "hour" : "minute";
+								var interval = (data["interval"] != "") ? " (last interval: " + data["interval"] + " s)" : "";
+								var lastPulse = (data["last_pulse"] != "") ? data["last_pulse"] : "none yet";
+
+								$('#pulse_value').html("Value: " + data["value"]);
+								$('#pulse_rate').html("Rate: " + data["rate_per_time_unit"] + " per " + timeUnit + interval);
+								$('#pulse_count').html("Pulses: " + data["count"] + " (" + data["pulses_per_unit"] + " pulses per unit on GPIO" + data["gpio"] + ")");
+								$('#pulse_lastpulse').html("Last Pulse: " + lastPulse);
+							}
+						}
+						catch (error) {
+							enabled = false;
+						}
+					}
+
+					var rows = document.getElementsByClassName("pulsecounter");
+					for (var i = 0; i < rows.length; i++) {
+						rows[i].style.display = enabled ? "" : "none";
+					}
+				}
+			}
+
+			xhttp.open("GET", url, true);
+			xhttp.send();
+		}
+
+		function setPulseCounterValue() {
+			var value = document.getElementById("pulse_setvalue").value.replace(",", ".");
+
+			if (value == "") {
+				return;
+			}
+
+			url = domainname + '/pulsecounter?set=' + value;
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4) {
+					$('#pulse_setresult').html(xhttp.responseText);
+					loadPulseCounter();
+				}
+			}
+
+			xhttp.open("GET", url, true);
+			xhttp.send();
+		}
+
+		function RefreshPulseCounter() {
+			setTimeout (function() {
+				loadPulseCounter();
+				RefreshPulseCounter();
+			}, 10000);
 		}
 
 		function loadStatus() {
@@ -344,6 +428,7 @@
 			domainname = getDomainname();
 			// setImageMaxWidth(); // CamFrameSize was replaced by zoom - CamFrameSize is no longer needed/used for zoom 
 			Refresh();
+			RefreshPulseCounter();
 		}
 
 		init();

@@ -22,6 +22,7 @@
 #include "components/jomjol-flowcontroll/test_cnnflowcontroll.cpp"
 #include "components/openmetrics/test_openmetrics.cpp"
 #include "components/jomjol_mqtt/test_server_mqtt.cpp"
+#include "components/jomjol_pulsecounter/test_pulsecounter_math.cpp"
 
 bool Init_NVS_SDCard()
 {
@@ -170,6 +171,7 @@ extern "C" void app_main()
     RUN_TEST(test_getReadoutRawString);
     RUN_TEST(test_openmetrics);
     RUN_TEST(test_mqtt);
+    RUN_TEST(test_pulsecounter_math);
   
   UNITY_END();
 }
