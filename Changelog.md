@@ -1,3 +1,11 @@
+# [Unreleased]
+
+### Core Changes
+- Added a **Pulse Counter** for an external sensor, e.g. an IR reflectance sensor (TCRT5000) watching the rotating disc of a Ferraris electricity meter or the pulse LED of a modern meter.
+  It counts the pulses on a GPIO, derives the current rate (power, flow) from the interval between the pulses and publishes it immediately via MQTT (including Home Assistant discovery), the REST API (`/pulsecounter`) and OpenMetrics.
+  The pulse derived meter value can be set manually and optionally gets aligned with the camera reading of a number sequence, so the camera provides the exact total and the sensor provides the responsive rate.
+  See the new `[PulseCounter]` section of the configuration.
+
 # [16.1.0] - 2026-01-11
 
 For a full list of changes see [Full list of changes](https://github.com/jomjol/AI-on-the-edge-device/compare/v16.0.0...v16.1.0)

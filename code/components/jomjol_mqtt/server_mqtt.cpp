@@ -3,6 +3,8 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <map>
+#include <functional>
 
 #include "esp_log.h"
 #include "ClassLogFile.h"
@@ -60,36 +62,24 @@ std::string createNodeId(std::string &topic) {
     return (splitPos == std::string::npos) ? topic : topic.substr(splitPos + 1);
 }
 
-bool sendHomeAssistantDiscoveryTopic(std::string group, std::string field,
-    std::string name, std::string icon, std::string unit, std::string deviceClass, std::string stateClass, std::string entityCategory,
-    int qos) {
+static std::map<std::string, std::function<bool(int)>> discoveryProviders;
+
+/**
+ * Publishes one Home Assistant discovery topic.
+ *
+ * configTopic:     Last level of the discovery topic, also used for unique_id and object_id
+ * specificPayload: Entity specific JSON members (state topic, value template, command topic, ...), each with a trailing comma
+ */
+static bool publishHomeAssistantDiscoveryPayload(std::string component, std::string configTopic, std::string name, std::string icon,
+    std::string unit, std::string deviceClass, std::string stateClass, std::string entityCategory, std::string specificPayload, int qos) {
     std::string version = std::string(libfive_git_version());
 
     if (version == "") {
         version = std::string(libfive_git_branch()) + " (" + std::string(libfive_git_revision()) + ")";
     }
-    
+
     std::string topicFull;
-    std::string configTopic;
     std::string payload;
-    std::string component;
-
-    configTopic = field;
-
-    if (group != "" && (*NUMBERS).size() > 1) { // There is more than one meter, prepend the group so we can differentiate them
-        configTopic = group + "_" + field;
-        name = group + " " + name;
-    }
-
-    if (field == "problem") { // Special case: Binary sensor which is based on error topic
-        component = "binary_sensor";
-    }
-    else if (field == "flowstart") { // Special case: Button
-        component = "button";
-    }
-    else {
-        component = "sensor";
-    }
 
     /** 
      * homeassistant needs the MQTT discovery topic according to the following structure:
@@ -106,30 +96,13 @@ bool sendHomeAssistantDiscoveryTopic(std::string group, std::string field,
         "\"unique_id\": \"" + maintopic + "-" + configTopic + "\","  +
         "\"object_id\": \"" + maintopic + "_" + configTopic + "\","  + // Default entity ID; required for HA <= 2025.10
         "\"default_entity_id\": \"" + component + "." + maintopic + "_" + configTopic + "\"," + // Default entity ID; required in HA >=2026.4
-        "\"name\": \"" + name + "\","  +
-        "\"icon\": \"mdi:" + icon + "\",";        
+        "\"name\": \"" + name + "\",";
 
-    if (group != "") {
-        if (field == "problem") { // Special case: Binary sensor which is based on error topic
-            payload += "\"state_topic\": \"~/" + group + "/error\",";
-            payload += "\"value_template\": \"{{ 'OFF' if 'no error' in value else 'ON'}}\",";
-        }
-        else {
-            payload += "\"state_topic\": \"~/" + group + "/" + field + "\",";
-        }
+    if (icon != "") {
+        payload += "\"icon\": \"mdi:" + icon + "\",";
     }
-    else {
-        if (field == "problem") { // Special case: Binary sensor which is based on error topic
-            payload += "\"state_topic\": \"~/error\",";
-            payload += "\"value_template\": \"{{ 'OFF' if 'no error' in value else 'ON'}}\",";
-        }
-        else if (field == "flowstart") { // Special case: Button
-            payload += "\"cmd_t\":\"~/ctrl/flow_start\","; // Add command topic
-        }
-        else {
-            payload += "\"state_topic\": \"~/" + field + "\",";
-        }
-    }
+
+    payload += specificPayload;
 
     if (unit != "") {
         payload += "\"unit_of_meas\": \"" + unit + "\",";
@@ -163,6 +136,82 @@ bool sendHomeAssistantDiscoveryTopic(std::string group, std::string field,
     "}";
 
     return MQTTPublish(topicFull, payload, qos, true);
+}
+
+bool sendHomeAssistantDiscoveryTopic(std::string group, std::string field,
+    std::string name, std::string icon, std::string unit, std::string deviceClass, std::string stateClass, std::string entityCategory,
+    int qos) {
+    std::string configTopic;
+    std::string component;
+    std::string specificPayload;
+
+    configTopic = field;
+
+    if (group != "" && (*NUMBERS).size() > 1) { // There is more than one meter, prepend the group so we can differentiate them
+        configTopic = group + "_" + field;
+        name = group + " " + name;
+    }
+
+    if (field == "problem") { // Special case: Binary sensor which is based on error topic
+        component = "binary_sensor";
+    }
+    else if (field == "flowstart") { // Special case: Button
+        component = "button";
+    }
+    else {
+        component = "sensor";
+    }
+
+    if (group != "") {
+        if (field == "problem") { // Special case: Binary sensor which is based on error topic
+            specificPayload += "\"state_topic\": \"~/" + group + "/error\",";
+            specificPayload += "\"value_template\": \"{{ 'OFF' if 'no error' in value else 'ON'}}\",";
+        }
+        else {
+            specificPayload += "\"state_topic\": \"~/" + group + "/" + field + "\",";
+        }
+    }
+    else {
+        if (field == "problem") { // Special case: Binary sensor which is based on error topic
+            specificPayload += "\"state_topic\": \"~/error\",";
+            specificPayload += "\"value_template\": \"{{ 'OFF' if 'no error' in value else 'ON'}}\",";
+        }
+        else if (field == "flowstart") { // Special case: Button
+            specificPayload += "\"cmd_t\":\"~/ctrl/flow_start\","; // Add command topic
+        }
+        else {
+            specificPayload += "\"state_topic\": \"~/" + field + "\",";
+        }
+    }
+
+    return publishHomeAssistantDiscoveryPayload(component, configTopic, name, icon, unit, deviceClass, stateClass, entityCategory, specificPayload, qos);
+}
+
+bool mqttServer_publishHomeAssistantDiscovery(const HomeAssistantEntity &entity, int qos) {
+    std::string specificPayload;
+
+    if (entity.stateTopic != "") {
+        specificPayload += "\"state_topic\": \"~/" + entity.stateTopic + "\",";
+    }
+
+    if (entity.commandTopic != "") {
+        specificPayload += "\"command_topic\": \"~/" + entity.commandTopic + "\",";
+    }
+
+    if (entity.extraJson != "") {
+        specificPayload += entity.extraJson + ",";
+    }
+
+    return publishHomeAssistantDiscoveryPayload(entity.component, entity.objectId, entity.name, entity.icon, entity.unit,
+                                                entity.deviceClass, entity.stateClass, entity.entityCategory, specificPayload, qos);
+}
+
+void mqttServer_registerDiscoveryProvider(std::string name, std::function<bool(int)> provider) {
+    discoveryProviders[name] = provider;
+}
+
+void mqttServer_unregisterDiscoveryProvider(std::string name) {
+    discoveryProviders.erase(name);
 }
 
 bool MQTThomeassistantDiscovery(int qos) {  
@@ -223,6 +272,11 @@ bool MQTThomeassistantDiscovery(int qos) {
         allSendsSuccessed |= sendHomeAssistantDiscoveryTopic(group,   "timestamp",                  "Timestamp",                            "clock-time-eight-outline",  "",                    "timestamp",       "",                 "diagnostic",     qos);
         allSendsSuccessed |= sendHomeAssistantDiscoveryTopic(group,   "json",                       "JSON",                                 "code-json",                 "",                    "",                "",                 "diagnostic",     qos);
         allSendsSuccessed |= sendHomeAssistantDiscoveryTopic(group,   "problem",                    "Problem",                              "alert-outline",             "",                    "problem",         "",                 "",               qos); // Special binary sensor which is based on error topic
+    }
+
+    /* Entities of other modules (e.g. the pulse counter) */
+    for (std::map<std::string, std::function<bool(int)>>::iterator it = discoveryProviders.begin(); it != discoveryProviders.end(); ++it) {
+        allSendsSuccessed |= it->second(qos);
     }
 
     LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Successfully published all Homeassistant Discovery MQTT topics");
@@ -381,6 +435,22 @@ void mqttServer_setMainTopic( std::string _maintopic) {
 
 std::string mqttServer_getMainTopic() {
     return maintopic;
+}
+
+std::string mqttServer_getMeterType() {
+    return meterType;
+}
+
+std::string mqttServer_getValueUnit() {
+    return valueUnit;
+}
+
+std::string mqttServer_getRateUnit() {
+    return rateUnit;
+}
+
+bool mqttServer_getRetainFlag() {
+    return retainFlag;
 }
 
 void mqttServer_setDmoticzInTopic( std::string _domoticzintopic) {

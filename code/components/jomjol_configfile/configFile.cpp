@@ -18,7 +18,9 @@ ConfigFile::ConfigFile(std::string filePath)
 
 ConfigFile::~ConfigFile()
 {
-    fclose(pFile);
+    if (pFile != NULL) {
+        fclose(pFile);
+    }
 }
 
 bool ConfigFile::isNewParagraph(std::string input)

@@ -259,6 +259,26 @@ function ParseConfig() {
     param[catname]["LEDColor"]["value2"] = "50";
     param[catname]["LEDColor"]["value3"] = "50";
 
+    var catname = "PulseCounter";
+    category[catname] = new Object();
+    category[catname]["enabled"] = false;
+    category[catname]["found"] = false;
+    param[catname] = new Object();
+    ParamAddValue(param, catname, "GPIO");
+    ParamAddValue(param, catname, "Edge");
+    ParamAddValue(param, catname, "PullMode");
+    ParamAddValue(param, catname, "PulsesPerUnit");
+    ParamAddValue(param, catname, "DebounceTime");
+    ParamAddValue(param, catname, "RateTimeout");
+    ParamAddValue(param, catname, "AlignSequence");
+    // Default values, so that configurations of older versions get a complete section
+    param[catname]["GPIO"]["value1"] = "13";
+    param[catname]["Edge"]["value1"] = "rising-edge";
+    param[catname]["PullMode"]["value1"] = "pullup";
+    param[catname]["PulsesPerUnit"]["value1"] = "75";
+    param[catname]["DebounceTime"]["value1"] = "500";
+    param[catname]["RateTimeout"]["value1"] = "300";
+
     var catname = "AutoTimer";
     category[catname] = new Object();
     category[catname]["enabled"] = false;

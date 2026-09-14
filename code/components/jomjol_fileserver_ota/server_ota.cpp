@@ -28,6 +28,7 @@
 #include "server_file.h"
 #include "server_help.h"
 #include "server_GPIO.h"
+#include "PulseCounter.h"
 #ifdef ENABLE_MQTT
 #include "interface_mqtt.h"
 #endif // ENABLE_MQTT
@@ -528,6 +529,7 @@ void task_reboot(void *DeleteMainFlow)
 #ifdef ENABLE_MQTT
     MQTTdestroy_client(true);
 #endif // ENABLE_MQTT
+    pulsecounter_deinit(); // Saves the pulse count
     gpio_handler_destroy();
     esp_camera_deinit();
     WIFIDestroy();

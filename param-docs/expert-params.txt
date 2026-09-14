@@ -45,3 +45,5 @@ CACert
 ValidateServerCert
 ClientCert
 ClientKey
+PullMode
+RateTimeout

@@ -77,6 +77,7 @@ bool getIsPlannedReboot(void);
 
 void InitializeFlowTask(void);
 void DeleteMainFlowTask(void);
+void alignPulseCounterWithReading(void);
 bool isSetupModusActive(void);
 
 int getCountFlowRounds(void);
