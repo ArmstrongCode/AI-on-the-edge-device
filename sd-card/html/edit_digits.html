@@ -162,6 +162,12 @@
             <td>y: <input type="number" name="refy" id="refy" step=1 onchange="valuemanualchanged()" tabindex=3></td>	
             <td>Δy: <input type="number" name="refdy" id="refdy" step=1 onchange="valuemanualchanged()" tabindex=5></td>
         </tr>
+
+        <tr>
+            <td colspan="3"><input type="checkbox" id="CCW" name="CCW" value="0" onclick="changeCCW()" unchecked tabindex=6><label for="CCW">Counter clockwise rotation (CCW)</label><br>
+                <small>Only honoured by <code>dig-class100</code> models; <code>dig-cont</code> and <code>dig-class11</code> models ignore this flag.</small>
+            </td>
+        </tr>
     </table>	
 </div>
 
@@ -301,10 +307,10 @@
                 space = ROIInfo[1].x - parseInt(ROIInfo[0].x) - parseInt(ROIInfo[0].dx);
             }
             erg = CreateROI(_number, "digit", sel.selectedIndex, _roinew, parseInt(ROIInfo[sel.selectedIndex].x) + parseInt(ROIInfo[sel.selectedIndex].dx) + space,
-                parseInt(ROIInfo[sel.selectedIndex].y), ROIInfo[aktindex]["dx"], ROIInfo[aktindex]["dy"], 0);
+                parseInt(ROIInfo[sel.selectedIndex].y), ROIInfo[aktindex]["dx"], ROIInfo[aktindex]["dy"], ROIInfo[aktindex]["CCW"] == "true" ? "true" : "false");
         }
         else {
-            erg = CreateROI(_number, "digit", sel.selectedIndex, _roinew, 15, 30, 30, 51, 0);
+            erg = CreateROI(_number, "digit", sel.selectedIndex, _roinew, 15, 30, 30, 51, "false");
         }
 
         if (erg != "") {
@@ -361,6 +367,23 @@
             document.getElementById("space").disabled = false;
         }
         UpdateROIs(); 
+    }
+
+    function changeCCW() {
+        var sel = document.getElementById("Numbers_value1");
+        var _number = sel.options[sel.selectedIndex].text;
+
+        ROIInfo = getROIInfo("digit", _number);
+        aktindex = parseInt(document.getElementById("index").value);
+
+        if (document.getElementById("CCW").checked) {
+            ROIInfo[aktindex]["CCW"] = "true";
+        }
+        else {
+            ROIInfo[aktindex]["CCW"] = "false";
+        }
+
+        UpdateROIs();
     }
 
     function ChangeSelection() {
@@ -446,6 +469,7 @@
             document.getElementById("lockAspectRatio").disabled = true;
             document.getElementById("showall").disabled = true;   
             document.getElementById("lockSpaceEquidistant").disabled = true;
+            document.getElementById("CCW").disabled = true;
             document.getElementById("moveNext").disabled = true;
             document.getElementById("movePrevious").disabled = true;
             document.getElementById("saveroi").disabled = false;
@@ -466,6 +490,7 @@
             document.getElementById("showall").disabled = false;    
             document.getElementById("lockAspectRatio").disabled = false;
             document.getElementById("lockSpaceEquidistant").disabled = false;
+            document.getElementById("CCW").disabled = false;
             document.getElementById("saveroi").disabled = false;
         }
 
@@ -522,6 +547,7 @@
         document.getElementById("refy").value = ROIInfo[aktindex]["y"];  
         document.getElementById("refdx").value = ROIInfo[aktindex]["dx"];  
         document.getElementById("refdy").value = ROIInfo[aktindex]["dy"];  
+        document.getElementById("CCW").checked = ROIInfo[aktindex]["CCW"] == "true";
         rect.startX = ROIInfo[aktindex]["x"];
         rect.startY = ROIInfo[aktindex]["y"];
         rect.w = ROIInfo[aktindex]["dx"];
@@ -739,6 +765,10 @@
         context.fillText(txt, x + padding / 2, y + padding / 2);
     }
 
+    function roiLabel(_roi) {
+        return _roi["CCW"] == "true" ? _roi["name"] + " (CCW)" : _roi["name"];
+    }
+
     function draw() {
         if (typeof ROIInfo === 'undefined') { // During init, ROIInfo is not defined yet
             return;
@@ -778,7 +808,7 @@
                         var dx = parseInt(ROIInfo[_nb].dx) + parseInt(lw);
                         var dy = parseInt(ROIInfo[_nb].dy) + parseInt(lw);
                         context.strokeRect(x0, y0, dx, dy);
-                        drawTextBG(context, ROIInfo[_nb]["name"], x0+dx/2, y0-12, 5);
+                        drawTextBG(context, roiLabel(ROIInfo[_nb]), x0+dx/2, y0-12, 5);
 
                         lw = 1
                         var x0 = parseInt(ROIInfo[_nb].x) - parseInt(lw/2);
@@ -803,7 +833,7 @@
             var dx = parseInt(rect.w) + parseInt(lw);
             var dy = parseInt(rect.h) + parseInt(lw);
             context.strokeRect(x0, y0, dx, dy);
-            drawTextBG(context, ROIInfo[aktindex]["name"], x0+dx/2, y0-11, 5);
+            drawTextBG(context, roiLabel(ROIInfo[aktindex]), x0+dx/2, y0-11, 5);
             context.lineWidth = 1;
             context.strokeRect(x0+dx*0.2, y0+dy*0.2, dx*0.6, dy*0.6);
 
