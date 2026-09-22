@@ -41,9 +41,37 @@ chmod +x flash-esp32cam.sh
 | `-Erase` | `--erase` | Erase the whole flash first (wipes stored config) |
 | `-BuildOnly` | `--build-only` | Compile only, never touch the device |
 | `-Monitor` | `--monitor` | Open the serial log afterwards |
+| `-Device http://192.168.1.50` | `--device http://192.168.1.50` | Push the web UI to a running device over Wi-Fi (before flashing) |
+| `-DeviceUser user:pass` | `--device-user user:pass` | Basic auth for `-Device`, if the web UI has a password |
+| `-WebOnly` | `--web-only` | Only update the checkout and push the web UI; no build, no flash |
 | `-Yes` | `--yes` | Assume yes for every confirmation prompt |
 
 Run with `-?` / `--help` for the full list.
+
+## Updating only the web UI
+
+The pages under `sd-card/html/` live on the SD card, not in the firmware, so a
+change to them needs no reflash. With the device on Wi-Fi:
+
+```powershell
+.\flash-esp32cam.ps1 -WebOnly -Device http://192.168.1.50
+```
+
+```bash
+./flash-esp32cam.sh --web-only --device http://192.168.1.50
+```
+
+This replaces every file under the card's `html/` folder with the checkout's
+copy, one file at a time through the device's own file server. Nothing outside
+`html/` is touched: `config.ini`, `wlan.ini`, the models and the logs stay as
+they are. Two details of the firmware make the per-file dance necessary: its
+upload handler refuses to overwrite an existing file, and when both `page.html`
+and `page.html.gz` exist it serves the `.gz` one — so each file is deleted under
+both names before its new copy is uploaded. Hard-refresh the browser afterwards
+(Ctrl+F5), it caches these pages aggressively.
+
+Add `-Device` / `--device` to a normal run and the same push happens after the
+build and before the USB flash, while the device is still up.
 
 ## Notes
 

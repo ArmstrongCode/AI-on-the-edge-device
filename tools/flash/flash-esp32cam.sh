@@ -13,6 +13,7 @@
 #   ./flash-esp32cam.sh --port /dev/ttyUSB0 --erase --monitor
 #   ./flash-esp32cam.sh --sd-card /Volumes/NO\ NAME
 #   ./flash-esp32cam.sh --build-only         # compile only, device untouched
+#   ./flash-esp32cam.sh --web-only --device http://192.168.1.50   # push the web UI over Wi-Fi, nothing else
 
 set -euo pipefail
 
@@ -27,6 +28,9 @@ DO_ERASE=0
 BUILD_ONLY=0
 DO_MONITOR=0
 ASSUME_YES=0
+DEVICE=""
+DEVICE_USER=""
+WEB_ONLY=0
 
 usage() {
     sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'
@@ -42,6 +46,10 @@ Options:
   --erase             Erase the whole flash before uploading (wipes stored config)
   --build-only        Compile only, never touch the device
   --monitor           Open the serial log after a successful upload
+  --device URL        Push the web UI (sd-card/html) to a running device over Wi-Fi,
+                      e.g. http://192.168.1.50 -- done before flashing, config untouched
+  --device-user U:P   HTTP basic auth for --device (http_username/http_password in wlan.ini)
+  --web-only          Only update the checkout and push the web UI; no build, no flash
   --yes               Assume yes for every confirmation prompt
   -h, --help          Show this help
 USAGE
@@ -58,11 +66,18 @@ while [ $# -gt 0 ]; do
         --erase)        DO_ERASE=1; shift ;;
         --build-only)   BUILD_ONLY=1; shift ;;
         --monitor)      DO_MONITOR=1; shift ;;
+        --device)       DEVICE="${2%/}"; shift 2 ;;
+        --device-user)  DEVICE_USER="$2"; shift 2 ;;
+        --web-only)     WEB_ONLY=1; shift ;;
         --yes)          ASSUME_YES=1; shift ;;
         -h|--help)      usage; exit 0 ;;
         *)              echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
+
+if [ "$WEB_ONLY" -eq 1 ] && [ -z "$DEVICE" ]; then
+    echo "--web-only needs --device URL" >&2; exit 2
+fi
 
 if [ -t 1 ]; then
     C_STEP=$'\033[36m'; C_NOTE=$'\033[90m'; C_WARN=$'\033[33m'; C_OFF=$'\033[0m'
@@ -104,9 +119,11 @@ for candidate in pio platformio "$HOME/.platformio/penv/bin/pio" "$HOME/.platfor
     if command -v "$candidate" >/dev/null 2>&1; then PIO="$(command -v "$candidate")"; break; fi
     if [ -x "$candidate" ]; then PIO="$candidate"; break; fi
 done
-[ -n "$PIO" ] || die "The PlatformIO CLI was not found.
+if [ -n "$PIO" ] || [ "$WEB_ONLY" -eq 1 ]; then :; else die "The PlatformIO CLI was not found.
 Open VS Code, wait for the PlatformIO IDE extension to finish its first-run
-install, then rerun this script from the PlatformIO terminal."
+install, then rerun this script from the PlatformIO terminal."; fi
+
+[ -z "$DEVICE" ] || command -v curl >/dev/null 2>&1 || die "--device needs curl on PATH."
 
 # Python ships with PlatformIO's virtualenv; used to parse the port listing.
 PY=""
@@ -115,7 +132,41 @@ for candidate in "$HOME/.platformio/penv/bin/python" python3; do
 done
 
 note "git:        $(command -v git)"
-note "platformio: $PIO"
+[ -z "$PIO" ] || note "platformio: $PIO"
+
+# Replace the web UI on a running device over Wi-Fi, file by file. The
+# firmware's upload handler refuses to overwrite and prefers a .gz copy when
+# one exists, so both names are deleted before each upload. Only /html is
+# touched; config, wlan.ini and the logs stay as they are.
+push_web_ui() {
+    step "Pushing the web UI to $DEVICE"
+    local auth=() f rel victim ok=0 failed=0
+    [ -z "$DEVICE_USER" ] || auth=(-u "$DEVICE_USER")
+
+    curl -fsS -m 10 ${auth[@]+"${auth[@]}"} -o /dev/null "$DEVICE/" \
+        || die "No device answering at $DEVICE. Check the address (and --device-user if the UI has a password)."
+
+    while IFS= read -r f; do
+        rel="${f#$REPO_PATH/sd-card/html/}"
+        case "$rel" in
+            *" "*) warn "skipping '$rel': the device refuses paths with spaces"; continue ;;
+        esac
+        note "$rel"
+        for victim in "$rel" "$rel.gz"; do
+            curl -sS -m 30 ${auth[@]+"${auth[@]}"} -o /dev/null -X POST "$DEVICE/delete/html/$victim" || true
+        done
+        if curl -fsS -m 120 ${auth[@]+"${auth[@]}"} -o /dev/null -X POST --data-binary "@$f" "$DEVICE/upload/html/$rel"; then
+            ok=$((ok + 1))
+        else
+            warn "upload failed: $rel"
+            failed=$((failed + 1))
+        fi
+    done < <(find "$REPO_PATH/sd-card/html" -type f | sort)
+
+    note "$ok file(s) uploaded."
+    [ "$failed" -eq 0 ] || die "$failed file(s) failed to upload; the web UI on the device may be partially updated."
+    note "Hard-refresh the browser (Ctrl+F5 / Cmd+Shift+R) to drop cached pages."
+}
 
 # --- Fetch the source -------------------------------------------------------
 
@@ -128,6 +179,12 @@ elif [ -e "$REPO_PATH" ]; then
 else
     step "Cloning $REPO_URL ($BRANCH) into $REPO_PATH"
     run git clone --branch "$BRANCH" "$REPO_URL" "$REPO_PATH"
+fi
+
+if [ "$WEB_ONLY" -eq 1 ]; then
+    push_web_ui
+    step "Web UI updated (--web-only: no build, device not flashed)."
+    exit 0
 fi
 
 step "Initialising submodules (esp-tflite-micro, esp32-camera, ...)"
@@ -189,6 +246,8 @@ if [ -n "$SD_CARD" ]; then
         note "Skipped."
     fi
 fi
+
+[ -z "$DEVICE" ] || push_web_ui
 
 if [ "$BUILD_ONLY" -eq 1 ]; then
     step "Build complete (--build-only, device untouched)."

@@ -21,6 +21,10 @@
 .EXAMPLE
     .\flash-esp32cam.ps1 -BuildOnly
     Compile only; never touches the device.
+
+.EXAMPLE
+    .\flash-esp32cam.ps1 -WebOnly -Device http://192.168.1.50
+    Push the web UI to a running device over Wi-Fi; no build, no flash.
 #>
 [CmdletBinding()]
 param(
@@ -50,9 +54,22 @@ param(
     # Open the serial log once the upload succeeds.
     [switch]$Monitor,
 
+    # Push the web UI (sd-card\html) to a running device over Wi-Fi,
+    # e.g. http://192.168.1.50. Done before flashing; config is untouched.
+    [string]$Device,
+
+    # user:password for -Device, when http_username/http_password are set in wlan.ini.
+    [string]$DeviceUser,
+
+    # Only update the checkout and push the web UI; no build, no flash.
+    [switch]$WebOnly,
+
     # Assume yes for every confirmation prompt.
     [switch]$Yes
 )
+
+if ($WebOnly -and -not $Device) { throw '-WebOnly needs -Device <url>.' }
+if ($Device) { $Device = $Device.TrimEnd('/') }
 
 $ErrorActionPreference = 'Stop'
 
@@ -90,6 +107,53 @@ function Resolve-Tool {
     throw $Hint
 }
 
+# Replace the web UI on a running device over Wi-Fi, file by file. The
+# firmware's upload handler refuses to overwrite and prefers a .gz copy when
+# one exists, so both names are deleted before each upload. Only /html is
+# touched; config, wlan.ini and the logs stay as they are.
+function Push-WebUi {
+    Write-Step "Pushing the web UI to $Device"
+    $headers = @{}
+    if ($DeviceUser) {
+        $headers['Authorization'] = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($DeviceUser))
+    }
+
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri "$Device/" -Headers $headers -TimeoutSec 10 | Out-Null
+    } catch {
+        throw "No device answering at $Device ($($_.Exception.Message)). Check the address (and -DeviceUser if the UI has a password)."
+    }
+
+    $htmlDir = (Resolve-Path (Join-Path $Path 'sd-card\html')).Path
+    $ok = 0
+    $failed = @()
+    foreach ($file in (Get-ChildItem -Path $htmlDir -File -Recurse | Sort-Object FullName)) {
+        $rel = $file.FullName.Substring($htmlDir.Length + 1).Replace('\', '/')
+        if ($rel.Contains(' ')) {
+            Write-Host "    skipping '$rel': the device refuses paths with spaces" -ForegroundColor Yellow
+            continue
+        }
+        Write-Note $rel
+        foreach ($victim in @($rel, "$rel.gz")) {
+            try { Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$Device/delete/html/$victim" -Headers $headers -TimeoutSec 30 | Out-Null } catch {}
+        }
+        try {
+            Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$Device/upload/html/$rel" -Headers $headers `
+                -InFile $file.FullName -ContentType 'application/octet-stream' -TimeoutSec 120 | Out-Null
+            $ok++
+        } catch {
+            Write-Host "    upload failed: $rel ($($_.Exception.Message))" -ForegroundColor Yellow
+            $failed += $rel
+        }
+    }
+
+    Write-Note "$ok file(s) uploaded."
+    if ($failed.Count -gt 0) {
+        throw "$($failed.Count) file(s) failed to upload ($($failed -join ', ')); the web UI on the device may be partially updated."
+    }
+    Write-Note 'Hard-refresh the browser (Ctrl+F5) to drop cached pages.'
+}
+
 # --- Locate the tools -------------------------------------------------------
 
 Write-Step 'Locating git and PlatformIO'
@@ -99,18 +163,21 @@ git was not found on PATH. Install it from https://git-scm.com/download/win
 and reopen the terminal.
 '@
 
-$penv = Join-Path $env:USERPROFILE '.platformio\penv\Scripts'
-$pio = Resolve-Tool -Names @('pio', 'platformio') -Fallbacks @(
-    (Join-Path $penv 'platformio.exe'),
-    (Join-Path $penv 'pio.exe')
-) -Hint @'
+$pio = $null
+if (-not $WebOnly) {
+    $penv = Join-Path $env:USERPROFILE '.platformio\penv\Scripts'
+    $pio = Resolve-Tool -Names @('pio', 'platformio') -Fallbacks @(
+        (Join-Path $penv 'platformio.exe'),
+        (Join-Path $penv 'pio.exe')
+    ) -Hint @'
 The PlatformIO CLI was not found. Open VS Code, wait for the PlatformIO IDE
 extension to finish its first-run install, then run this script again from the
 PlatformIO terminal (the terminal icon in the bottom status bar).
 '@
+}
 
 Write-Note "git:        $git"
-Write-Note "platformio: $pio"
+if ($pio) { Write-Note "platformio: $pio" }
 
 # --- Fetch the source -------------------------------------------------------
 
@@ -126,6 +193,12 @@ if (Test-Path $gitDir) {
     Write-Step "Cloning $RepoUrl ($Branch) into $Path"
     # core.longpaths keeps deep ESP-IDF component paths from tripping MAX_PATH.
     Invoke-Checked $git @('-c', 'core.longpaths=true', 'clone', '--branch', $Branch, $RepoUrl, $Path)
+}
+
+if ($WebOnly) {
+    Push-WebUi
+    Write-Step 'Web UI updated (-WebOnly: no build, device not flashed).'
+    exit 0
 }
 
 Write-Step 'Initialising submodules (esp-tflite-micro, esp32-camera, ...)'
@@ -201,6 +274,8 @@ if ($SdCard) {
         Write-Note 'Skipped.'
     }
 }
+
+if ($Device) { Push-WebUi }
 
 if ($BuildOnly) {
     Write-Step 'Build complete (-BuildOnly, device untouched).'
