@@ -91,8 +91,14 @@
         color:rgb(122, 122, 122);
     }
 
-    .segment_layout {
-        width: 45px;
+    input[type=number].segment_layout {
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
+    }
+
+    .segment_layout_cell {
+        white-space: nowrap;
     }
 
     #GPIO_LEDColor_value1 #GPIO_LEDColor_value2 #GPIO_LEDColor_value3 {
@@ -870,7 +876,7 @@
                 <input type="checkbox" id="Digits_SegmentA_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentA")' unchecked >
                 <label for=Digits_SegmentA_enabled><class id="Digits_SegmentA_text" style="color:black;">Segment A (top)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentA_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentA_value2" class="segment_layout" min="0" max="100" step="1"
@@ -878,7 +884,7 @@
                 dx <input required type="number" id="Digits_SegmentA_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentA_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentA</td>
         </tr>
@@ -888,7 +894,7 @@
                 <input type="checkbox" id="Digits_SegmentB_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentB")' unchecked >
                 <label for=Digits_SegmentB_enabled><class id="Digits_SegmentB_text" style="color:black;">Segment B (top right)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentB_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentB_value2" class="segment_layout" min="0" max="100" step="1"
@@ -896,7 +902,7 @@
                 dx <input required type="number" id="Digits_SegmentB_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentB_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentB</td>
         </tr>
@@ -906,7 +912,7 @@
                 <input type="checkbox" id="Digits_SegmentC_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentC")' unchecked >
                 <label for=Digits_SegmentC_enabled><class id="Digits_SegmentC_text" style="color:black;">Segment C (bottom right)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentC_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentC_value2" class="segment_layout" min="0" max="100" step="1"
@@ -914,7 +920,7 @@
                 dx <input required type="number" id="Digits_SegmentC_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentC_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentC</td>
         </tr>
@@ -924,7 +930,7 @@
                 <input type="checkbox" id="Digits_SegmentD_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentD")' unchecked >
                 <label for=Digits_SegmentD_enabled><class id="Digits_SegmentD_text" style="color:black;">Segment D (bottom)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentD_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentD_value2" class="segment_layout" min="0" max="100" step="1"
@@ -932,7 +938,7 @@
                 dx <input required type="number" id="Digits_SegmentD_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentD_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentD</td>
         </tr>
@@ -942,7 +948,7 @@
                 <input type="checkbox" id="Digits_SegmentE_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentE")' unchecked >
                 <label for=Digits_SegmentE_enabled><class id="Digits_SegmentE_text" style="color:black;">Segment E (bottom left)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentE_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentE_value2" class="segment_layout" min="0" max="100" step="1"
@@ -950,7 +956,7 @@
                 dx <input required type="number" id="Digits_SegmentE_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentE_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentE</td>
         </tr>
@@ -960,7 +966,7 @@
                 <input type="checkbox" id="Digits_SegmentF_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentF")' unchecked >
                 <label for=Digits_SegmentF_enabled><class id="Digits_SegmentF_text" style="color:black;">Segment F (top left)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentF_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentF_value2" class="segment_layout" min="0" max="100" step="1"
@@ -968,7 +974,7 @@
                 dx <input required type="number" id="Digits_SegmentF_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentF_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentF</td>
         </tr>
@@ -978,7 +984,7 @@
                 <input type="checkbox" id="Digits_SegmentG_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentG")' unchecked >
                 <label for=Digits_SegmentG_enabled><class id="Digits_SegmentG_text" style="color:black;">Segment G (middle)</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentG_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentG_value2" class="segment_layout" min="0" max="100" step="1"
@@ -986,7 +992,7 @@
                 dx <input required type="number" id="Digits_SegmentG_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentG_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentG</td>
         </tr>
@@ -996,7 +1002,7 @@
                 <input type="checkbox" id="Digits_SegmentBgUpper_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentBgUpper")' unchecked >
                 <label for=Digits_SegmentBgUpper_enabled><class id="Digits_SegmentBgUpper_text" style="color:black;">Segment Background Upper</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentBgUpper_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentBgUpper_value2" class="segment_layout" min="0" max="100" step="1"
@@ -1004,7 +1010,7 @@
                 dx <input required type="number" id="Digits_SegmentBgUpper_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentBgUpper_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentBgUpper</td>
         </tr>
@@ -1014,7 +1020,7 @@
                 <input type="checkbox" id="Digits_SegmentBgLower_enabled" value="1"  onclick = 'InvertEnableItem("Digits", "SegmentBgLower")' unchecked >
                 <label for=Digits_SegmentBgLower_enabled><class id="Digits_SegmentBgLower_text" style="color:black;">Segment Background Lower</class></label>
             </td>
-            <td>
+            <td class="segment_layout_cell">
                 x <input required type="number" id="Digits_SegmentBgLower_value1" class="segment_layout" min="0" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=0)) && (!validity.rangeOverflow||(value=100));">
                 y <input required type="number" id="Digits_SegmentBgLower_value2" class="segment_layout" min="0" max="100" step="1"
@@ -1022,7 +1028,7 @@
                 dx <input required type="number" id="Digits_SegmentBgLower_value3" class="segment_layout" min="1" max="100" step="1"
                     oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
                 dy <input required type="number" id="Digits_SegmentBgLower_value4" class="segment_layout" min="1" max="100" step="1"
-                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));"> %
+                    oninput="(!validity.rangeUnderflow||(value=1)) && (!validity.rangeOverflow||(value=100));">
             </td>
             <td>$TOOLTIP_Digits_SegmentBgLower</td>
         </tr>
