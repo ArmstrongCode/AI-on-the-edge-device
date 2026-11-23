@@ -153,6 +153,19 @@ function ParseConfig() {
     ParamAddValue(param, catname, "CNNGoodThreshold", 1);
     ParamAddValue(param, catname, "ROIImagesLocation");
     ParamAddValue(param, catname, "ROIImagesRetention");
+    ParamAddValue(param, catname, "SegmentDetection");
+    ParamAddValue(param, catname, "SegmentPolarity");
+    ParamAddValue(param, catname, "SegmentSlant");
+    ParamAddValue(param, catname, "SegmentThreshold");
+    ParamAddValue(param, catname, "SegmentA", 4);
+    ParamAddValue(param, catname, "SegmentB", 4);
+    ParamAddValue(param, catname, "SegmentC", 4);
+    ParamAddValue(param, catname, "SegmentD", 4);
+    ParamAddValue(param, catname, "SegmentE", 4);
+    ParamAddValue(param, catname, "SegmentF", 4);
+    ParamAddValue(param, catname, "SegmentG", 4);
+    ParamAddValue(param, catname, "SegmentBgUpper", 4);
+    ParamAddValue(param, catname, "SegmentBgLower", 4);
 
     var catname = "Analog";
     category[catname] = new Object();
@@ -170,6 +183,7 @@ function ParseConfig() {
     param[catname] = new Object();
     ParamAddValue(param, catname, "DecimalShift", 1, true, "0");
     ParamAddValue(param, catname, "AnalogToDigitTransitionStart", 1, true, "9.2");
+    ParamAddValue(param, catname, "ContinuousLastDigit", 1, true, "false");
     ParamAddValue(param, catname, "ChangeRateThreshold", 1, true, "2");
     // ParamAddValue(param, catname, "PreValueUse", 1, true, "true");
     ParamAddValue(param, catname, "PreValueUse");
@@ -353,6 +367,16 @@ function ParseConfig() {
         param["System"]["RSSIThreshold"]["enabled"] = false;
         param["System"]["RSSIThreshold"]["value1"] = "0";
     }
+
+    // Downward compatibility: Create ContinuousLastDigit for each number if not available.
+    // It has no enable checkbox, so a parameter missing in the config would stay locked in the UI.
+    for (var _num in NUMBERS) {
+        if (NUMBERS[_num]["PostProcessing"]["ContinuousLastDigit"]["found"] == false) {
+            NUMBERS[_num]["PostProcessing"]["ContinuousLastDigit"]["found"] = true;
+            NUMBERS[_num]["PostProcessing"]["ContinuousLastDigit"]["enabled"] = true;
+            NUMBERS[_num]["PostProcessing"]["ContinuousLastDigit"]["value1"] = "false";
+        }
+    }
 }
 
 function ParamAddValue(param, _cat, _param, _anzParam = 1, _isNUMBER = false, _defaultValue = "", _checkRegExList = null) {
@@ -375,7 +399,8 @@ function ParseConfigParamAll(_aktline, _catname) {
         var linesplit = ZerlegeZeile(input);
         ParamExtractValueAll(param, linesplit, _catname, _aktline, isCom);
         
-        if (!isCom && (linesplit.length >= 5) && (_catname == 'Digits')) {
+        // Parameters with 4 values (e.g. SegmentA = x y dx dy) must not be mistaken for a ROI
+        if (!isCom && (linesplit.length >= 5) && (_catname == 'Digits') && !isParamName(_catname, linesplit[0])) {
             ExtractROIs(input, "digit");
         }
         
@@ -747,6 +772,16 @@ function WriteConfigININew() {
 
         config_split.push("");
     }
+}
+
+function isParamName(_catname, _name) {
+    for (var paramname in param[_catname]) {
+        if (paramname.toUpperCase() == _name.toUpperCase()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function isCommented(input) {

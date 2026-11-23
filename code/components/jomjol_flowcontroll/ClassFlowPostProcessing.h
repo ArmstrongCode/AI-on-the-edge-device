@@ -9,11 +9,14 @@
 #include "ClassFlowDefineTypes.h"
 
 #include <string>
+#include <mutex>
 
 class ClassFlowPostProcessing :
     public ClassFlow
 {
 protected:
+    std::mutex preValueMutex;   // PreValue is set from HTTP/MQTT tasks while the flow task post-processes
+
     bool UpdatePreValueINI;
 
     int PreValueAgeStartup; 
@@ -30,7 +33,7 @@ protected:
     string ShiftDecimal(string in, int _decShift);
 
     string ErsetzteN(string, double _prevalue);
-    float checkDigitConsistency(double input, int _decilamshift, bool _isanalog, double _preValue);
+    double checkDigitConsistency(double input, int _decilamshift, bool _isanalog, double _preValue);
 
     void InitNUMBERS();
 	
@@ -41,6 +44,7 @@ protected:
     void handleAnalogToDigitTransitionStart(string _decsep, string _value);
     void handleAllowNegativeRate(string _decsep, string _value);
     void handleIgnoreLeadingNaN(string _decsep, string _value);
+    void handleContinuousLastDigit(string _decsep, string _value);
     void handleChangeRateThreshold(string _decsep, string _value);
     void handlecheckDigitIncreaseConsistency(std::string _decsep, std::string _value);
 

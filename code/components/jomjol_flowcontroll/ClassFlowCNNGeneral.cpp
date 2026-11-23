@@ -8,7 +8,9 @@
 #include "CTfLiteClass.h"
 #include "ClassLogFile.h"
 #include "esp_log.h"
+
 #include "../../include/defines.h"
+#include "Helper.h"
 
 static const char* TAG = "CNN";
 
@@ -27,6 +29,7 @@ ClassFlowCNNGeneral::ClassFlowCNNGeneral(ClassFlowAlignment *_flowalign, t_CNNTy
     ListFlowControll = NULL;
     previousElement = NULL;   
     SaveAllFiles = false; 
+    useSegmentDetection = false;
     disabled = false;
     isLogImageSelect = false;
     CNNType = AutoDetect;
@@ -35,7 +38,7 @@ ClassFlowCNNGeneral::ClassFlowCNNGeneral(ClassFlowAlignment *_flowalign, t_CNNTy
     imagesRetention = 5;
 }
 
-string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution, int prev, float _before_narrow_Analog, float AnalogToDigitTransitionStart) {
+string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution, int prev, float _before_narrow_Analog, float AnalogToDigitTransitionStart, bool ContinuousLastDigit) {
     string result = "";    
 
     if (GENERAL[_analog]->ROI.size() == 0) {
@@ -90,7 +93,7 @@ string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution
             }
             else {
                 if (_before_narrow_Analog >= 0) {
-                    prev = PointerEvalHybridNew(GENERAL[_analog]->ROI[GENERAL[_analog]->ROI.size() - 1]->result_float, _before_narrow_Analog, prev, true, AnalogToDigitTransitionStart);
+                    prev = PointerEvalHybridNew(GENERAL[_analog]->ROI[GENERAL[_analog]->ROI.size() - 1]->result_float, _before_narrow_Analog, prev, true, AnalogToDigitTransitionStart, ContinuousLastDigit);
                 }
                 else {
                     prev = PointerEvalHybridNew(GENERAL[_analog]->ROI[GENERAL[_analog]->ROI.size() - 1]->result_float, prev, prev);
@@ -144,10 +147,11 @@ string ClassFlowCNNGeneral::getReadout(int _analog = 0, bool _extendedResolution
  * @param Analog_Predecessors false/true if the last ROI is an analog or digit ROI (default=false)
  *                              runs in special handling because analog is much less precise
  * @param digitAnalogTransitionStart start of the transitionlogic begins on number_of_predecessor (default=9.2)
+ * @param ContinuousLastDigit the digit before the analog ROIs rolls continuously with the first pointer (default=false)
  *
  * @return int the determined number of the current ROI
  */
-int ClassFlowCNNGeneral::PointerEvalHybridNew(float number, float number_of_predecessors, int eval_predecessors, bool Analog_Predecessors, float digitAnalogTransitionStart) {
+int ClassFlowCNNGeneral::PointerEvalHybridNew(float number, float number_of_predecessors, int eval_predecessors, bool Analog_Predecessors, float digitAnalogTransitionStart, bool ContinuousLastDigit) {
     int result;
     int result_after_decimal_point = ((int) floor(number * 10)) % 10;
     int result_before_decimal_point = ((int) floor(number) + 10) % 10;
@@ -167,7 +171,7 @@ int ClassFlowCNNGeneral::PointerEvalHybridNew(float number, float number_of_pred
     }
 
     if (Analog_Predecessors) {
-        result = PointerEvalAnalogToDigitNew(number, number_of_predecessors, eval_predecessors, digitAnalogTransitionStart);
+        result = PointerEvalAnalogToDigitNew(number, number_of_predecessors, eval_predecessors, digitAnalogTransitionStart, ContinuousLastDigit);
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalHybridNew - Analog predecessor, evaluation over PointerEvalAnalogNew = " + std::to_string(result) +
                                                     " number: " + std::to_string(number) + " number_of_predecessors = " + std::to_string(number_of_predecessors)+ " eval_predecessors = " + std::to_string(eval_predecessors) + " Digit_Uncertainty = " +  std::to_string(Digit_Uncertainty));
         return result;
@@ -225,11 +229,39 @@ int ClassFlowCNNGeneral::PointerEvalHybridNew(float number, float number_of_pred
     return result;
 }
 
-int ClassFlowCNNGeneral::PointerEvalAnalogToDigitNew(float number, float numeral_preceder,  int eval_predecessors, float AnalogToDigitTransitionStart) {
+int ClassFlowCNNGeneral::PointerEvalAnalogToDigitNew(float number, float numeral_preceder,  int eval_predecessors, float AnalogToDigitTransitionStart, bool ContinuousLastDigit) {
     int result;
     int result_after_decimal_point = ((int) floor(number * 10)) % 10;
     int result_before_decimal_point = ((int) floor(number) + 10) % 10;
     bool roundedUp = false;
+
+    // Drum geared continuously to the first analog pointer: its position is digit + pointer/10
+    // (e.g. 7.6 at pointer 6), so there is no step to detect. Remove the pointer's share and round;
+    // this tolerates +/-0.5 of combined reading error and wraps 9 <-> 0 in both directions.
+    // AnalogToDigitTransitionStart is not used in this mode.
+    if (ContinuousLastDigit) {
+        float pointer = numeral_preceder;
+
+        // Near 0 the pointer reading can be on the wrong side (e.g. 9.8 although the next pointer shows
+        // it has passed 0). The analog evaluation already resolved this (eval_predecessors), so move the
+        // reading to that side: 9.8 evaluated as 0 -> -0.2, 0.1 evaluated as 9 -> 10.1.
+        if (eval_predecessors >= 0) {
+            int pointer_before_decimal_point = (int) floor(pointer);
+
+            if (pointer_before_decimal_point - eval_predecessors >= 5) {
+                pointer -= 10;
+            }
+            else if (eval_predecessors - pointer_before_decimal_point >= 5) {
+                pointer += 10;
+            }
+        }
+
+        result = ((int) round(number - pointer / 10.0) + 10) % 10;
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalogToDigitNew - Continuous last digit - Result = " + std::to_string(result) +
+                                                    " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder) +
+                                                    " eval_predecessors = " + std::to_string(eval_predecessors));
+        return result;
+    }
 
     // Within the digit inequalities 
     if ((result_after_decimal_point >= (10-Digit_Uncertainty * 10))     // Band around the digit --> Round off, as digit reaches inaccuracy in the frame
@@ -318,6 +350,8 @@ bool ClassFlowCNNGeneral::ReadParameter(FILE* pfile, string& aktparamgraph) {
         return false;
     }
 
+    bool isDigitSection = (toUpper(aktparamgraph) == "[DIGIT]") || (toUpper(aktparamgraph) == "[DIGITS]");
+
     if (aktparamgraph[0] == ';') {
         disabled = true;
         while (getNextLine(pfile, &aktparamgraph) && !isNewParagraph(aktparamgraph));
@@ -327,6 +361,12 @@ bool ClassFlowCNNGeneral::ReadParameter(FILE* pfile, string& aktparamgraph) {
 
     while (this->getNextLine(pfile, &aktparamgraph) && !this->isNewParagraph(aktparamgraph)) {
         splitted = ZerlegeZeile(aktparamgraph);
+
+        // Seven segment sub-ROI positions: "SegmentA = x y dx dy" (percent of the digit ROI).
+        // Must be handled before the ROI lines below, as they also have 5 elements.
+        if (isDigitSection && (splitted.size() > 0) && ReadSegmentLayoutParameter(splitted)) {
+            continue;
+        }
         if ((toUpper(splitted[0]) == "ROIIMAGESLOCATION") && (splitted.size() > 1)) {
             this->imagesLocation = "/sdcard" + splitted[1];
             this->isLogImage = true;
@@ -374,9 +414,51 @@ bool ClassFlowCNNGeneral::ReadParameter(FILE* pfile, string& aktparamgraph) {
         if ((toUpper(splitted[0]) == "SAVEALLFILES") && (splitted.size() > 1)) {
             SaveAllFiles = alphanumericToBoolean(splitted[1]);
         }
+
+        // Seven segment detection is only available for digit ROIs
+        if (isDigitSection && (toUpper(splitted[0]) == "SEGMENTDETECTION") && (splitted.size() > 1)) {
+            useSegmentDetection = alphanumericToBoolean(splitted[1]);
+        }
+
+        if (isDigitSection && (toUpper(splitted[0]) == "SEGMENTPOLARITY") && (splitted.size() > 1)) {
+            string polarity = toUpper(splitted[1]);
+            if (polarity == "BRIGHT") {
+                segmentConfig.polarity = SegmentPolarityBright;
+            }
+            else if (polarity == "DARK") {
+                segmentConfig.polarity = SegmentPolarityDark;
+            }
+            else {
+                segmentConfig.polarity = SegmentPolarityAuto;
+            }
+        }
+
+        if (isDigitSection && (toUpper(splitted[0]) == "SEGMENTSLANT") && (splitted.size() > 1)) {
+            if (isStringNumeric(splitted[1])) {
+                segmentConfig.slantDeg = std::stof(splitted[1]);
+            }
+        }
+
+        if (isDigitSection && (toUpper(splitted[0]) == "SEGMENTTHRESHOLD") && (splitted.size() > 1)) {
+            if (isStringNumeric(splitted[1])) {
+                float threshold = std::stof(splitted[1]);
+                if ((threshold > 0) && (threshold < 1)) {
+                    segmentConfig.threshold = threshold;
+                }
+            }
+        }
     }
 
-    if (!getNetworkParameter()) {
+    if (useSegmentDetection) {
+        // No neural network needed: the digits are built from the detected segments.
+        // The ROI images are still prepared with the default digit model size (used for the web interface).
+        CNNType = Digit;
+        modelxsize = 20;
+        modelysize = 32;
+        modelchannel = 3;
+        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Digits: seven segment detection enabled, CNN model is not used");
+    }
+    else if (!getNetworkParameter()) {
         LogFile.WriteToFile(ESP_LOG_ERROR, TAG, "An error occured on setting up the Network -> Disabling it!");
         disabled = true; // An error occured, disable this CNN!
         return false;
@@ -555,6 +637,15 @@ void ClassFlowCNNGeneral::DrawROI(CImageBasis *_zw) {
             for (int _dig = 0; _dig < GENERAL.size(); ++_dig) {
                 for (int i = 0; i < GENERAL[_dig]->ROI.size(); ++i) {
                     _zw->drawRect(GENERAL[_dig]->ROI[i]->posx, GENERAL[_dig]->ROI[i]->posy, GENERAL[_dig]->ROI[i]->deltax, GENERAL[_dig]->ROI[i]->deltay, 0, 0, (255 - _dig*100), 2);
+
+                    if (useSegmentDetection) {
+                        // Show the segment sub-ROIs so they can be aligned with the display
+                        for (int s = 0; s < SEG_REGION_COUNT; ++s) {
+                            SegmentRect r = GetSegmentRect(s, GENERAL[_dig]->ROI[i]->deltax, GENERAL[_dig]->ROI[i]->deltay, segmentConfig);
+                            int red = (s < SEG_COUNT) ? 255 : 0;
+                            _zw->drawRect(GENERAL[_dig]->ROI[i]->posx + r.x + r.slantOffset, GENERAL[_dig]->ROI[i]->posy + r.y, r.dx, r.dy, red, 255, 0, 1);
+                        }
+                    }
                 }
             }
         }
@@ -633,9 +724,70 @@ bool ClassFlowCNNGeneral::getNetworkParameter() {
     return true;
 }
 
+bool ClassFlowCNNGeneral::ReadSegmentLayoutParameter(std::vector<string> &splitted) {
+    static const char *names[SEG_REGION_COUNT] = {
+        "SEGMENTA", "SEGMENTB", "SEGMENTC", "SEGMENTD", "SEGMENTE", "SEGMENTF", "SEGMENTG", "SEGMENTBGUPPER", "SEGMENTBGLOWER"
+    };
+
+    string key = toUpper(splitted[0]);
+
+    for (int region = 0; region < SEG_REGION_COUNT; ++region) {
+        if (key != names[region]) {
+            continue;
+        }
+
+        if ((splitted.size() >= 5) && isStringNumeric(splitted[1]) && isStringNumeric(splitted[2]) && 
+                isStringNumeric(splitted[3]) && isStringNumeric(splitted[4]) &&
+                SetSegmentLayout(segmentConfig, region, std::stof(splitted[1]), std::stof(splitted[2]), std::stof(splitted[3]), std::stof(splitted[4]))) {
+            return true;
+        }
+
+        LogFile.WriteToFile(ESP_LOG_WARN, TAG, "Invalid value for " + splitted[0] + " (expected: x y dx dy in percent of the ROI) -> default is used");
+        return true;
+    }
+
+    return false;
+}
+
+bool ClassFlowCNNGeneral::doSegmentDetection(string time) {
+    string logPath = CreateLogFolder(time);
+
+    for (int n = 0; n < GENERAL.size(); ++n) {
+        for (int roi = 0; roi < GENERAL[n]->ROI.size(); ++roi) {
+            CImageBasis *img = GENERAL[n]->ROI[roi]->image_org;
+            SegmentDecodeResult res = DecodeSevenSegment(img->rgb_image, img->width, img->height, img->channels, segmentConfig);
+
+            // Unreadable / invalid segment pattern -> class 10 (= "N"), same as the CNN NaN class
+            GENERAL[n]->ROI[roi]->result_klasse = (res.digit >= 0) ? res.digit : 10;
+            GENERAL[n]->ROI[roi]->result_float = (res.digit >= 0) ? res.digit : -1;
+
+            string litSegments = "";
+            for (int s = 0; s < SEG_COUNT; ++s) {
+                litSegments += (res.mask & (1 << s)) ? (char) ('a' + s) : '-';
+            }
+            LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Segment detection " + GENERAL[n]->name + "_" + GENERAL[n]->ROI[roi]->name + 
+                    ": segments=" + litSegments + ", digit=" + std::to_string(res.digit) + ", background=" + std::to_string((int) res.background) + 
+                    ", polarity=" + std::to_string(res.polarity));
+
+            if (isLogImage) {
+                string _imagename = GENERAL[n]->name +  "_" + GENERAL[n]->ROI[roi]->name;
+                if (!isLogImageSelect || (LogImageSelect.find(GENERAL[n]->ROI[roi]->name) != std::string::npos)) {
+                    LogImage(logPath, _imagename, NULL, &GENERAL[n]->ROI[roi]->result_klasse, time, GENERAL[n]->ROI[roi]->image_org);
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
 bool ClassFlowCNNGeneral::doNeuralNetwork(string time) {
     if (disabled) {
         return true;
+    }
+
+    if (useSegmentDetection) {
+        return doSegmentDetection(time);
     }
 
     string logPath = CreateLogFolder(time);
@@ -671,8 +823,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(string time) {
                 case Analogue:
                     LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CNN Type: Analogue");
                     {
-                        float f1, f2;
-                        f1 = 0; f2 = 0;
+                        float f1 = 0, f2 = 0;
 
                         tflite->LoadInputImageBasis(GENERAL[n]->ROI[roi]->image);        
                         tflite->Invoke();
@@ -680,7 +831,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(string time) {
 
                         f1 = tflite->GetOutputValue(0);
                         f2 = tflite->GetOutputValue(1);
-                        float result = fmod(atan2(f1, f2) / (M_PI * 2) + 2, 1);
+						float result = fmod(atan2(f1, f2) / (M_PI * 2) + 2, 1);
                               
                         if(GENERAL[n]->ROI[roi]->CCW) {
                             GENERAL[n]->ROI[roi]->result_float = 10 - (result * 10);
